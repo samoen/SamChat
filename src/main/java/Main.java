@@ -1,3 +1,7 @@
+import com.google.gson.Gson;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonPrimitive;
+import netscape.javascript.JSObject;
 import org.java_websocket.WebSocket;
 import org.java_websocket.client.WebSocketClient;
 import org.java_websocket.drafts.Draft;
@@ -18,56 +22,74 @@ import java.net.URI;
 class AppState{
     WebSocketServer webSocketServer;
     WebSocketClient webSocketClient;
-    JButton connect;
-    JComboBox draftField;
+    JButton connectButton;
+    JComboBox<Draft> draftComboBox;
     JTextField uriField;
-    JTextArea ta;
-    JButton close;
+    JTextArea messageView;
+    JButton closeButton;
     JTextField chatField;
     JFrame jFrame;
+    String myName;
 }
 
-public class Main {
-    private static int PORT = 8887;
+class ChatMessage{
+    public String message=null;
+    public String fromUser=null;
 
+}
+
+
+public class Main {
+
+    private static int PORT = 8887;
+    public static String quickMessage(String mess,String from){
+        JsonObject toSend = new JsonObject();
+        toSend.addProperty("message",mess);
+        toSend.addProperty("fromUser",from);
+        return toSend.toString();
+    }
     private static WebSocketClient makeClient(AppState appState){
-        Draft draft = (Draft) appState.draftField.getSelectedItem();
+        Draft draft = (Draft) appState.draftComboBox.getSelectedItem();
         if(draft==null)return null;
         URI uri = null;
-        try {uri = new URI(appState.uriField.getText());}catch (Exception uriex){System.out.println(uriex);}
+        try {uri = new URI(appState.uriField.getText());}catch (Exception uriex){System.out.println(uriex.toString());}
         if(uri==null)return null;
         return new WebSocketClient(uri, draft) {
             @Override
             public void onOpen(ServerHandshake handshakedata) {
-                appState.ta.append("You are connected to ChatServer: " + getURI() + "\n");
-                appState.ta.setCaretPosition(appState.ta.getDocument().getLength());
+                appState.messageView.append("You are connected to ChatServer: " + getURI() + "\n");
+                appState.messageView.setCaretPosition(appState.messageView.getDocument().getLength());
             }
 
             @Override
             public void onMessage(String message) {
-                appState.ta.append("got: "+ message + "\n");
-                appState.ta.setCaretPosition(appState.ta.getDocument().getLength());
+                ChatMessage chatMessage = new Gson().fromJson(message, ChatMessage.class);
+                appState.messageView.append(chatMessage.fromUser +" says: "+ chatMessage.message);
+//                JsonObject chatMessage = new Gson().fromJson(message, JsonObject.class);
+//                appState.messageView.append(chatMessage.get("fromUser") +" says: "+ chatMessage.get("message"));
+                appState.messageView.append("\n");
+                appState.messageView.setCaretPosition(appState.messageView.getDocument().getLength());
             }
 
             @Override
             public void onClose(int code, String reason, boolean remote) {
-                appState.ta.append("You have been disconnected from: " + getURI() + "; Code: " + code + " " + reason + "\n");
-                appState.ta.setCaretPosition(appState.ta.getDocument().getLength());
-                appState.connect.setEnabled(true);
+                appState.messageView.append("You have been disconnected from: " + getURI() + "; Code: " + code + " " + reason + "\n");
+                appState.messageView.setCaretPosition(appState.messageView.getDocument().getLength());
+                appState.connectButton.setEnabled(true);
                 appState.uriField.setEditable(true);
-                appState.draftField.setEditable(true);
-                appState.close.setEnabled(false);
+                appState.draftComboBox.setEditable(true);
+                appState.closeButton.setEnabled(false);
             }
 
             @Override
             public void onError(Exception ex) {
-                appState.ta.append("Exception occured ...\n$ex\n");
-                appState.ta.setCaretPosition(appState.ta.getDocument().getLength());
+                appState.messageView.append("Exception occured ...\n$ex\n");
+                appState.messageView.setCaretPosition(appState.messageView.getDocument().getLength());
                 ex.printStackTrace();
-                appState.connect.setEnabled(true);
+                appState.connectButton.setEnabled(true);
                 appState.uriField.setEditable(true);
-                appState.draftField.setEditable(true);
-                appState.close.setEnabled(false);
+                appState.draftComboBox.setEditable(true);
+                appState.closeButton.setEnabled(false);
             }
         };
     }
@@ -76,14 +98,14 @@ public class Main {
         return new WebSocketServer(new InetSocketAddress(PORT)) {
             @Override
             public void onOpen(WebSocket conn, ClientHandshake handshake) {
-                conn.send("Welcome to the server!");
-                broadcast("new connection: " + handshake.getResourceDescriptor()); //This method sends a message to all clients connected
+                conn.send(quickMessage("Welcome to the server!","Server"));
+                broadcast(quickMessage("Someone entered the chatroom","Server"));
                 System.out.println(conn.getRemoteSocketAddress().getAddress().getHostAddress() + " entered the room!");
             }
 
             @Override
             public void onClose(WebSocket conn, int code, String reason, boolean remote) {
-                broadcast(conn+" has left the room!");
+                broadcast(quickMessage(conn +" has left the room!","Server"));
                 System.out.println(conn+" has left the room!");
             }
 
@@ -101,8 +123,8 @@ public class Main {
             @Override
             public void onStart() {
                 System.out.println("Server started!");
-                this.setConnectionLostTimeout(0);
-                this.setConnectionLostTimeout(100);
+                setConnectionLostTimeout(0);
+                setConnectionLostTimeout(100);
             }
         };
     }
@@ -112,10 +134,10 @@ public class Main {
             @Override
             public void actionPerformed(ActionEvent e) {
                 appState.webSocketClient = makeClient(appState);
-                appState.close.setEnabled(true);
-                appState.connect.setEnabled(false);
+                appState.closeButton.setEnabled(true);
+                appState.connectButton.setEnabled(false);
                 appState.uriField.setEditable(false);
-                appState.draftField.setEditable(false);
+                appState.draftComboBox.setEditable(false);
                 appState.webSocketClient.connect();
             }
         };
@@ -153,7 +175,7 @@ public class Main {
         return new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                appState.webSocketClient.send(appState.chatField.getText());
+                appState.webSocketClient.send(quickMessage(appState.chatField.getText(),appState.myName));
                 appState.chatField.setText("");
                 appState.chatField.requestFocus();
             }
@@ -161,28 +183,28 @@ public class Main {
     }
     private static void startApp(){
         AppState appState = new AppState();
+        appState.myName = "someone";
         appState.uriField = new JTextField();
-        appState.connect= new JButton("connect");
-        appState.close = new JButton("close");
-        appState.ta = new JTextArea();
+        appState.connectButton = new JButton("connectButton");
+        appState.closeButton = new JButton("closeButton");
+        appState.messageView = new JTextArea();
         appState.chatField= new JTextField();
         appState.jFrame = new JFrame("WebSocket Chat Client");
-
         String location = "ws://localhost:"+ PORT;
         JButton startServer = new JButton("Start Server");
         GridLayout layout = new GridLayout();
         Draft[] drafts = new Draft[]{new Draft_6455()};
         layout.setColumns(1);
         layout.setRows(7);
-        appState.draftField = new JComboBox(drafts);
+        appState.draftComboBox = new JComboBox<Draft>(drafts);
         appState.uriField.setText(location);
-        appState.close.setEnabled(false);
+        appState.closeButton.setEnabled(false);
         JScrollPane scroll = new JScrollPane();
-        scroll.setViewportView(appState.ta);
+        scroll.setViewportView(appState.messageView);
         appState.chatField.setText("");
-        appState.connect.addActionListener(getConnectListener(appState));
+        appState.connectButton.addActionListener(getConnectListener(appState));
         startServer.addActionListener(makeStartServerActionListener(appState));
-        appState.close.addActionListener(makeCloseListener(appState));
+        appState.closeButton.addActionListener(makeCloseListener(appState));
         appState.chatField.addActionListener(makeChatFieldListener(appState));
         Dimension d = new Dimension(300, 400);
         appState.jFrame.setPreferredSize(d);
@@ -190,11 +212,11 @@ public class Main {
         appState.jFrame.addWindowListener(makeWindowListener(appState));
         Container c = appState.jFrame.getContentPane();
         c.setLayout(layout);
-        c.add(appState.draftField);
+        c.add(appState.draftComboBox);
         c.add(appState.uriField);
-        c.add(appState.connect);
+        c.add(appState.connectButton);
         c.add(startServer);
-        c.add(appState.close);
+        c.add(appState.closeButton);
         c.add(scroll);
         c.add(appState.chatField);
         appState.jFrame.setLocationRelativeTo(null);

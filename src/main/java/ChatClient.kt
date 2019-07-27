@@ -19,8 +19,8 @@ import java.nio.ByteBuffer
 fun alloh(){
     val port = 8887 // 843 flash policy port
     val uriField = JTextField()
-    val connect= JButton("connect")
-    val close = JButton("close")
+    val connect= JButton("connectButton")
+    val close = JButton("closeButton")
     val ta = JTextArea()
     val chatField= JTextField()
     val draftField: JComboBox<*>
@@ -82,7 +82,7 @@ fun alloh(){
              }
 
             close.isEnabled = true
-//            connect.isEnabled = false
+//            connectButton.isEnabled = false
             uriField.isEditable = false
             draftField.isEditable = false
             cc.connect()
