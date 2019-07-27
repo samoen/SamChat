@@ -146,15 +146,16 @@ public class Main {
                 }
                 if(auser==null)return;
                 if(jsonObject.has("desiredName")){
-                    auser.name = jsonObject.get("desiredName").toString();
+                    SetNameMessage setNameMessage = new Gson().fromJson(message,SetNameMessage.class);
+                    auser.name = setNameMessage.desiredName;
                     ArrayList<String> ids = (ArrayList<String>) appState.usersInServer.stream().map((it)->it.name ).collect(Collectors.toList());
                     ChatMessage bcm = new ChatMessage();
                     bcm.fromUser = "server";
                     bcm.message = "new userlist is "+ids.toString();
                     broadcast(bcm.messageify());
                 }else if (jsonObject.has("message")){
-                    ChatMessage chatMessage = new ChatMessage();
-                    chatMessage.message = auser.name +" says "+jsonObject.getAsJsonPrimitive("message").getAsString().toString();
+                    ChatMessage chatMessage = new Gson().fromJson(message,ChatMessage.class);
+                    chatMessage.message = auser.name +" says "+chatMessage.message;
                     System.out.println(chatMessage.message);
                     System.out.println(chatMessage.messageify());
                     broadcast(chatMessage.messageify());
@@ -236,7 +237,8 @@ public class Main {
             @Override
             public void actionPerformed(ActionEvent e) {
                 SetNameMessage cm = new SetNameMessage();
-                cm.desiredName = "changedit";
+                cm.desiredName = appState.chatField.getText();
+                appState.chatField.setText("");
                 appState.webSocketClient.send(new Gson().toJson(cm));
                 appState.chatField.setText("");
                 appState.chatField.requestFocus();
