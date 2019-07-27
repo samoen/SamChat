@@ -1,7 +1,5 @@
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
-import com.google.gson.JsonPrimitive;
-import netscape.javascript.JSObject;
 import org.java_websocket.WebSocket;
 import org.java_websocket.client.WebSocketClient;
 import org.java_websocket.drafts.Draft;
@@ -18,36 +16,42 @@ import java.awt.event.WindowEvent;
 import java.awt.event.WindowListener;
 import java.net.InetSocketAddress;
 import java.net.URI;
+import java.util.ArrayList;
+import java.util.stream.Collectors;
 
+class User{
+    WebSocket sock;
+    String name;
+}
 class AppState{
+    ArrayList<User> usersInServer = new ArrayList<User>();
     WebSocketServer webSocketServer;
     WebSocketClient webSocketClient;
     JButton connectButton;
+    JButton setNameButton;
     JComboBox<Draft> draftComboBox;
     JTextField uriField;
     JTextArea messageView;
     JButton closeButton;
     JTextField chatField;
     JFrame jFrame;
-    String myName;
+//    String myName;
 }
 
 class ChatMessage{
-    public String message=null;
-    public String fromUser=null;
+    String message;
+    String fromUser;
+    String messageify(){
+        return new Gson().toJson(this);
+    }
+}
 
+class SetNameMessage{
+    String desiredName;
 }
 
 
 public class Main {
-
-    private static int PORT = 8887;
-    public static String quickMessage(String mess,String from){
-        JsonObject toSend = new JsonObject();
-        toSend.addProperty("message",mess);
-        toSend.addProperty("fromUser",from);
-        return toSend.toString();
-    }
     private static WebSocketClient makeClient(AppState appState){
         Draft draft = (Draft) appState.draftComboBox.getSelectedItem();
         if(draft==null)return null;
@@ -63,12 +67,16 @@ public class Main {
 
             @Override
             public void onMessage(String message) {
-                ChatMessage chatMessage = new Gson().fromJson(message, ChatMessage.class);
-                appState.messageView.append(chatMessage.fromUser +" says: "+ chatMessage.message);
-//                JsonObject chatMessage = new Gson().fromJson(message, JsonObject.class);
-//                appState.messageView.append(chatMessage.get("fromUser") +" says: "+ chatMessage.get("message"));
-                appState.messageView.append("\n");
-                appState.messageView.setCaretPosition(appState.messageView.getDocument().getLength());
+                JsonObject jsonObject = new Gson().fromJson(message,JsonObject.class);
+                if(jsonObject.has("message")){
+                    ChatMessage cm = new Gson().fromJson(message,ChatMessage.class);
+                    appState.messageView.append( cm.message );
+                    appState.messageView.append("\n");
+                    appState.messageView.setCaretPosition(appState.messageView.getDocument().getLength());
+                }
+//                appState.messageView.append(message);
+//                ChatMessage chatMessage = new Gson().fromJson(message, ChatMessage.class);
+//                appState.messageView.append(chatMessage.fromUser +" says: "+ chatMessage.message);
             }
 
             @Override
@@ -94,25 +102,64 @@ public class Main {
         };
     }
 
-    private static WebSocketServer makeServer(){
-        return new WebSocketServer(new InetSocketAddress(PORT)) {
+    private static WebSocketServer makeServer(AppState appState){
+        int port = Integer.parseInt(appState.uriField.getText().split(":")[2]);
+        return new WebSocketServer(new InetSocketAddress(port)) {
             @Override
             public void onOpen(WebSocket conn, ClientHandshake handshake) {
-                conn.send(quickMessage("Welcome to the server!","Server"));
-                broadcast(quickMessage("Someone entered the chatroom","Server"));
+                User user = new User();
+                user.name = conn.getRemoteSocketAddress().getAddress().toString();
+                user.sock = conn;
+                appState.usersInServer.add(user);
+                ChatMessage cm = new ChatMessage();
+                cm.fromUser = "server";
+                cm.message = "welcome to the server";
+                conn.send(cm.messageify());
+
+                ChatMessage bcm = new ChatMessage();
+                bcm.fromUser = "server";
+
+                ArrayList<String> ids = (ArrayList<String>) appState.usersInServer.stream().map((it)->it.name ).collect(Collectors.toList());
+                bcm.message = "new userlist is "+ids.toString();
+                broadcast(bcm.messageify());
                 System.out.println(conn.getRemoteSocketAddress().getAddress().getHostAddress() + " entered the room!");
             }
 
             @Override
             public void onClose(WebSocket conn, int code, String reason, boolean remote) {
-                broadcast(quickMessage(conn +" has left the room!","Server"));
+                ChatMessage cm = new ChatMessage();
+                cm.fromUser = "server";
+                cm.message = conn + " has left the room!";
+                broadcast(cm.messageify());
                 System.out.println(conn+" has left the room!");
             }
 
             @Override
             public void onMessage(WebSocket conn, String message) {
-                broadcast(message);
-                System.out.println(conn.getRemoteSocketAddress()+": "+message);
+                JsonObject jsonObject = new Gson().fromJson(message,JsonObject.class);
+                User auser=null;
+                for(User user : appState.usersInServer){
+                    if(user.sock==conn){
+                        auser = user;
+                        break;
+                    }
+                }
+                if(auser==null)return;
+                if(jsonObject.has("desiredName")){
+                    auser.name = jsonObject.get("desiredName").toString();
+                    ArrayList<String> ids = (ArrayList<String>) appState.usersInServer.stream().map((it)->it.name ).collect(Collectors.toList());
+                    ChatMessage bcm = new ChatMessage();
+                    bcm.fromUser = "server";
+                    bcm.message = "new userlist is "+ids.toString();
+                    broadcast(bcm.messageify());
+                }else if (jsonObject.has("message")){
+                    ChatMessage chatMessage = new ChatMessage();
+                    chatMessage.message = auser.name +" says "+jsonObject.getAsJsonPrimitive("message").getAsString().toString();
+                    System.out.println(chatMessage.message);
+                    System.out.println(chatMessage.messageify());
+                    broadcast(chatMessage.messageify());
+                }
+
             }
 
             @Override
@@ -129,7 +176,7 @@ public class Main {
         };
     }
 
-    private static ActionListener getConnectListener(AppState appState){
+    private static ActionListener connectButtonPressed(AppState appState){
         return new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
@@ -146,12 +193,12 @@ public class Main {
         return new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                appState.webSocketServer = makeServer();
+                appState.webSocketServer = makeServer(appState);
                 appState.webSocketServer.start();
             }
         };
     }
-    private static ActionListener makeCloseListener(AppState appState){
+    private static ActionListener closeButtonListener(AppState appState){
         return new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
@@ -160,7 +207,7 @@ public class Main {
             }
         };
     }
-    static WindowListener makeWindowListener(AppState appState){
+    private static WindowListener windowCloseListener(AppState appState){
         return new java.awt.event.WindowAdapter() {
             @Override
             public void windowClosing(WindowEvent e) {
@@ -171,11 +218,26 @@ public class Main {
             }
         };
     }
-    private static ActionListener makeChatFieldListener(AppState appState){
+    private static ActionListener chatFieldListener(AppState appState){
         return new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                appState.webSocketClient.send(quickMessage(appState.chatField.getText(),appState.myName));
+                ChatMessage cm = new ChatMessage();
+//                cm.fromUser = appState.myName;
+                cm.message = appState.chatField.getText();
+                appState.webSocketClient.send(cm.messageify());
+                appState.chatField.setText("");
+                appState.chatField.requestFocus();
+            }
+        };
+    }
+    private static ActionListener setNameButtonListener(AppState appState){
+        return new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                SetNameMessage cm = new SetNameMessage();
+                cm.desiredName = "changedit";
+                appState.webSocketClient.send(new Gson().toJson(cm));
                 appState.chatField.setText("");
                 appState.chatField.requestFocus();
             }
@@ -183,34 +245,36 @@ public class Main {
     }
     private static void startApp(){
         AppState appState = new AppState();
-        appState.myName = "someone";
+//        appState.myName = "someone";
         appState.uriField = new JTextField();
-        appState.connectButton = new JButton("connectButton");
-        appState.closeButton = new JButton("closeButton");
+        appState.connectButton = new JButton("connect to server");
+        appState.setNameButton = new JButton("set name");
+        appState.closeButton = new JButton("close connections");
         appState.messageView = new JTextArea();
         appState.chatField= new JTextField();
         appState.jFrame = new JFrame("WebSocket Chat Client");
-        String location = "ws://localhost:"+ PORT;
         JButton startServer = new JButton("Start Server");
-        GridLayout layout = new GridLayout();
         Draft[] drafts = new Draft[]{new Draft_6455()};
-        layout.setColumns(1);
-        layout.setRows(7);
         appState.draftComboBox = new JComboBox<Draft>(drafts);
-        appState.uriField.setText(location);
+        appState.uriField.setText("ws://localhost:8887");
         appState.closeButton.setEnabled(false);
         JScrollPane scroll = new JScrollPane();
         scroll.setViewportView(appState.messageView);
         appState.chatField.setText("");
-        appState.connectButton.addActionListener(getConnectListener(appState));
+        appState.setNameButton.addActionListener(setNameButtonListener(appState));
+        appState.connectButton.addActionListener(connectButtonPressed(appState));
         startServer.addActionListener(makeStartServerActionListener(appState));
-        appState.closeButton.addActionListener(makeCloseListener(appState));
-        appState.chatField.addActionListener(makeChatFieldListener(appState));
+        appState.closeButton.addActionListener(closeButtonListener(appState));
+        appState.chatField.addActionListener(chatFieldListener(appState));
         Dimension d = new Dimension(300, 400);
         appState.jFrame.setPreferredSize(d);
         appState.jFrame.setSize(d);
-        appState.jFrame.addWindowListener(makeWindowListener(appState));
+        appState.jFrame.addWindowListener(windowCloseListener(appState));
         Container c = appState.jFrame.getContentPane();
+        GridLayout layout = new GridLayout();
+        layout.setColumns(2);
+        layout.setHgap(5);
+        layout.setRows(7);
         c.setLayout(layout);
         c.add(appState.draftComboBox);
         c.add(appState.uriField);
@@ -219,6 +283,7 @@ public class Main {
         c.add(appState.closeButton);
         c.add(scroll);
         c.add(appState.chatField);
+        c.add(appState.setNameButton);
         appState.jFrame.setLocationRelativeTo(null);
         appState.jFrame.setVisible(true);
     }
