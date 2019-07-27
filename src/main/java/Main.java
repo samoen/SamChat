@@ -35,12 +35,10 @@ class AppState{
     JButton closeButton;
     JTextField chatField;
     JFrame jFrame;
-//    String myName;
 }
 
 class ChatMessage{
     String message;
-    String fromUser;
     String messageify(){
         return new Gson().toJson(this);
     }
@@ -74,9 +72,6 @@ public class Main {
                     appState.messageView.append("\n");
                     appState.messageView.setCaretPosition(appState.messageView.getDocument().getLength());
                 }
-//                appState.messageView.append(message);
-//                ChatMessage chatMessage = new Gson().fromJson(message, ChatMessage.class);
-//                appState.messageView.append(chatMessage.fromUser +" says: "+ chatMessage.message);
             }
 
             @Override
@@ -112,12 +107,10 @@ public class Main {
                 user.sock = conn;
                 appState.usersInServer.add(user);
                 ChatMessage cm = new ChatMessage();
-                cm.fromUser = "server";
                 cm.message = "welcome to the server";
                 conn.send(cm.messageify());
 
                 ChatMessage bcm = new ChatMessage();
-                bcm.fromUser = "server";
 
                 ArrayList<String> ids = (ArrayList<String>) appState.usersInServer.stream().map((it)->it.name ).collect(Collectors.toList());
                 bcm.message = "new userlist is "+ids.toString();
@@ -128,7 +121,6 @@ public class Main {
             @Override
             public void onClose(WebSocket conn, int code, String reason, boolean remote) {
                 ChatMessage cm = new ChatMessage();
-                cm.fromUser = "server";
                 cm.message = conn + " has left the room!";
                 broadcast(cm.messageify());
                 System.out.println(conn+" has left the room!");
@@ -136,6 +128,7 @@ public class Main {
 
             @Override
             public void onMessage(WebSocket conn, String message) {
+                System.out.println("server recieved: "+message);
                 JsonObject jsonObject = new Gson().fromJson(message,JsonObject.class);
                 User auser=null;
                 for(User user : appState.usersInServer){
@@ -150,14 +143,11 @@ public class Main {
                     auser.name = setNameMessage.desiredName;
                     ArrayList<String> ids = (ArrayList<String>) appState.usersInServer.stream().map((it)->it.name ).collect(Collectors.toList());
                     ChatMessage bcm = new ChatMessage();
-                    bcm.fromUser = "server";
                     bcm.message = "new userlist is "+ids.toString();
                     broadcast(bcm.messageify());
                 }else if (jsonObject.has("message")){
                     ChatMessage chatMessage = new Gson().fromJson(message,ChatMessage.class);
                     chatMessage.message = auser.name +" says "+chatMessage.message;
-                    System.out.println(chatMessage.message);
-                    System.out.println(chatMessage.messageify());
                     broadcast(chatMessage.messageify());
                 }
 
@@ -224,7 +214,6 @@ public class Main {
             @Override
             public void actionPerformed(ActionEvent e) {
                 ChatMessage cm = new ChatMessage();
-//                cm.fromUser = appState.myName;
                 cm.message = appState.chatField.getText();
                 appState.webSocketClient.send(cm.messageify());
                 appState.chatField.setText("");
@@ -260,11 +249,9 @@ public class Main {
         JScrollPane scroll = sf.chatScrollPane;
         scroll.setViewportView(appState.messageView);
         JButton startServer = sf.startServerButton;
-//        Draft[] drafts = new Draft[]{new Draft_6455()};
 
-        appState.draftComboBox = (JComboBox<Draft>) sf.comboBox1;
+        appState.draftComboBox = sf.comboBox1;
         appState.draftComboBox.addItem(new Draft_6455());
-//        appState.draftComboBox = new JComboBox<Draft>(drafts);
         appState.uriField.setText("ws://localhost:8887");
         appState.closeButton.setEnabled(false);
         appState.chatField.setText("");
@@ -279,29 +266,12 @@ public class Main {
         appState.jFrame.setPreferredSize(d);
         appState.jFrame.setSize(d);
         appState.jFrame.addWindowListener(windowCloseListener(appState));
-
-
-
-//        Container c = appState.jFrame.getContentPane();
-//        FlowLayout layout = new FlowLayout();
-//        c.setLayout(layout);
-//        c.add(appState.draftComboBox);
-//        c.add(appState.uriField);
-//        c.add(appState.connectButton);
-//        c.add(startServer);
-//        c.add(appState.closeButton);
-//        c.add(scroll);
-//        c.add(appState.chatField);
-//        c.add(appState.setNameButton);
-//        appState.jFrame.setLocationRelativeTo(null);
         appState.jFrame.setVisible(true);
     }
 
     public static void main(String[] args){
         System.out.println("hihi");
-//        ChatClientKt.alloh();
-//        ChatClientKt.alloh();
-//        startApp();
+        startApp();
         startApp();
     }
 }
