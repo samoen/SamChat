@@ -247,46 +247,53 @@ public class Main {
     }
     private static void startApp(){
         AppState appState = new AppState();
-//        appState.myName = "someone";
-        appState.uriField = new JTextField();
-        appState.connectButton = new JButton("connect to server");
-        appState.setNameButton = new JButton("set name");
-        appState.closeButton = new JButton("close connections");
-        appState.messageView = new JTextArea();
-        appState.chatField= new JTextField();
+        Samform1 sf = new Samform1();
+
         appState.jFrame = new JFrame("WebSocket Chat Client");
-        JButton startServer = new JButton("Start Server");
-        Draft[] drafts = new Draft[]{new Draft_6455()};
-        appState.draftComboBox = new JComboBox<Draft>(drafts);
+        appState.jFrame.setContentPane(sf.panel1);
+        appState.uriField = sf.uriField;
+        appState.connectButton = sf.connectToServerButton;
+        appState.setNameButton = sf.setNameButton;
+        appState.closeButton = sf.closeConnectionsButton;
+        appState.messageView = sf.textArea1;
+        appState.chatField= sf.chatField;
+        JScrollPane scroll = sf.chatScrollPane;
+        scroll.setViewportView(appState.messageView);
+        JButton startServer = sf.startServerButton;
+//        Draft[] drafts = new Draft[]{new Draft_6455()};
+
+        appState.draftComboBox = (JComboBox<Draft>) sf.comboBox1;
+        appState.draftComboBox.addItem(new Draft_6455());
+//        appState.draftComboBox = new JComboBox<Draft>(drafts);
         appState.uriField.setText("ws://localhost:8887");
         appState.closeButton.setEnabled(false);
-        JScrollPane scroll = new JScrollPane();
-        scroll.setViewportView(appState.messageView);
         appState.chatField.setText("");
+
         appState.setNameButton.addActionListener(setNameButtonListener(appState));
         appState.connectButton.addActionListener(connectButtonPressed(appState));
         startServer.addActionListener(makeStartServerActionListener(appState));
         appState.closeButton.addActionListener(closeButtonListener(appState));
         appState.chatField.addActionListener(chatFieldListener(appState));
-        Dimension d = new Dimension(300, 400);
+
+        Dimension d = new Dimension(700, 800);
         appState.jFrame.setPreferredSize(d);
         appState.jFrame.setSize(d);
         appState.jFrame.addWindowListener(windowCloseListener(appState));
-        Container c = appState.jFrame.getContentPane();
-        GridLayout layout = new GridLayout();
-        layout.setColumns(2);
-        layout.setHgap(5);
-        layout.setRows(7);
-        c.setLayout(layout);
-        c.add(appState.draftComboBox);
-        c.add(appState.uriField);
-        c.add(appState.connectButton);
-        c.add(startServer);
-        c.add(appState.closeButton);
-        c.add(scroll);
-        c.add(appState.chatField);
-        c.add(appState.setNameButton);
-        appState.jFrame.setLocationRelativeTo(null);
+
+
+
+//        Container c = appState.jFrame.getContentPane();
+//        FlowLayout layout = new FlowLayout();
+//        c.setLayout(layout);
+//        c.add(appState.draftComboBox);
+//        c.add(appState.uriField);
+//        c.add(appState.connectButton);
+//        c.add(startServer);
+//        c.add(appState.closeButton);
+//        c.add(scroll);
+//        c.add(appState.chatField);
+//        c.add(appState.setNameButton);
+//        appState.jFrame.setLocationRelativeTo(null);
         appState.jFrame.setVisible(true);
     }
 
@@ -294,7 +301,7 @@ public class Main {
         System.out.println("hihi");
 //        ChatClientKt.alloh();
 //        ChatClientKt.alloh();
-        startApp();
+//        startApp();
         startApp();
     }
 }
