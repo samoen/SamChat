@@ -35,6 +35,7 @@ class AppState{
     JButton closeButton;
     JTextField chatField;
     JFrame jFrame;
+    DefaultListModel<String> listModel;
 }
 
 class ChatMessage{
@@ -43,6 +44,10 @@ class ChatMessage{
 
 class SetNameMessage{
     String desiredName;
+}
+
+class UserListMessage{
+    ArrayList<String> userList;
 }
 
 
@@ -68,6 +73,12 @@ public class Main {
                     appState.messageView.append( cm.message );
                     appState.messageView.append("\n");
                     appState.messageView.setCaretPosition(appState.messageView.getDocument().getLength());
+                }else if(jsonObject.has("userList")){
+                    appState.listModel.clear();
+                    UserListMessage userListMessage = new Gson().fromJson(message,UserListMessage.class);
+                    for(String usr : userListMessage.userList){
+                        appState.listModel.addElement(usr);
+                    }
                 }
             }
 
@@ -75,6 +86,7 @@ public class Main {
             public void onClose(int code, String reason, boolean remote) {
                 appState.messageView.append("You have been disconnected from: " + getURI() + "; Code: " + code + " " + reason + "\n");
                 appState.messageView.setCaretPosition(appState.messageView.getDocument().getLength());
+                appState.listModel.clear();
                 appState.connectButton.setEnabled(true);
                 appState.uriField.setEditable(true);
                 appState.draftComboBox.setEditable(true);
@@ -94,6 +106,17 @@ public class Main {
         };
     }
 
+    private static void sendUserList(AppState appState){
+        UserListMessage bcm = new UserListMessage();
+//        ArrayList<String> ids = (ArrayList<String>) appState.usersInServer.stream().map((it)->it.name ).collect(Collectors.toList());
+        ArrayList<String> ids = new ArrayList<String>();
+        for(User usr : appState.usersInServer){
+            ids.add(usr.name);
+        }
+        bcm.userList = ids;
+        appState.webSocketServer.broadcast(new Gson().toJson(bcm));
+    }
+
     private static WebSocketServer makeServer(AppState appState){
         int port = Integer.parseInt(appState.uriField.getText().split(":")[2]);
         return new WebSocketServer(new InetSocketAddress(port)) {
@@ -106,21 +129,24 @@ public class Main {
                 ChatMessage cm = new ChatMessage();
                 cm.message = "welcome to the server";
                 conn.send(new Gson().toJson(cm));
-
-                ChatMessage bcm = new ChatMessage();
-
-                ArrayList<String> ids = (ArrayList<String>) appState.usersInServer.stream().map((it)->it.name ).collect(Collectors.toList());
-                bcm.message = "new userlist is "+ids.toString();
-                broadcast(new Gson().toJson(bcm));
+                sendUserList(appState);
                 System.out.println(conn.getRemoteSocketAddress().getAddress().getHostAddress() + " entered the room!");
             }
 
             @Override
             public void onClose(WebSocket conn, int code, String reason, boolean remote) {
-                ChatMessage cm = new ChatMessage();
-                cm.message = conn + " has left the room!";
-                broadcast(new Gson().toJson(cm));
-                System.out.println(conn+" has left the room!");
+                for(User user : appState.usersInServer){
+                    if(conn == user.sock){
+                        appState.usersInServer.remove(user);
+                        break;
+                    }
+                }
+
+//                ChatMessage cm = new ChatMessage();
+//                cm.message = conn + " has left the room!";
+//                broadcast(new Gson().toJson(cm));
+                sendUserList(appState);
+                System.out.println(conn+" disconnected");
             }
 
             @Override
@@ -138,10 +164,7 @@ public class Main {
                 if(jsonObject.has("desiredName")){
                     SetNameMessage setNameMessage = new Gson().fromJson(message,SetNameMessage.class);
                     auser.name = setNameMessage.desiredName;
-                    ArrayList<String> ids = (ArrayList<String>) appState.usersInServer.stream().map((it)->it.name ).collect(Collectors.toList());
-                    ChatMessage bcm = new ChatMessage();
-                    bcm.message = "new userlist is "+ids.toString();
-                    broadcast(new Gson().toJson(bcm));
+                    sendUserList(appState);
                 }else if (jsonObject.has("message")){
                     ChatMessage chatMessage = new Gson().fromJson(message,ChatMessage.class);
                     chatMessage.message = auser.name +" says "+chatMessage.message;
@@ -246,7 +269,8 @@ public class Main {
         JScrollPane scroll = sf.chatScrollPane;
         scroll.setViewportView(appState.messageView);
         JButton startServer = sf.startServerButton;
-
+        appState.listModel = new DefaultListModel<String>();
+        sf.list1.setModel(appState.listModel);
         appState.draftComboBox = sf.comboBox1;
         appState.draftComboBox.addItem(new Draft_6455());
         appState.uriField.setText("ws://localhost:8887");

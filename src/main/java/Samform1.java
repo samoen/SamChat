@@ -13,5 +13,6 @@ public class Samform1 {
     public JPanel panel1;
     public JButton closeConnectionsButton;
     public JScrollPane chatScrollPane;
+    public JList<String> list1;
 
 }
