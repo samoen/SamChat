@@ -39,9 +39,6 @@ class AppState{
 
 class ChatMessage{
     String message;
-    String messageify(){
-        return new Gson().toJson(this);
-    }
 }
 
 class SetNameMessage{
@@ -108,13 +105,13 @@ public class Main {
                 appState.usersInServer.add(user);
                 ChatMessage cm = new ChatMessage();
                 cm.message = "welcome to the server";
-                conn.send(cm.messageify());
+                conn.send(new Gson().toJson(cm));
 
                 ChatMessage bcm = new ChatMessage();
 
                 ArrayList<String> ids = (ArrayList<String>) appState.usersInServer.stream().map((it)->it.name ).collect(Collectors.toList());
                 bcm.message = "new userlist is "+ids.toString();
-                broadcast(bcm.messageify());
+                broadcast(new Gson().toJson(bcm));
                 System.out.println(conn.getRemoteSocketAddress().getAddress().getHostAddress() + " entered the room!");
             }
 
@@ -122,7 +119,7 @@ public class Main {
             public void onClose(WebSocket conn, int code, String reason, boolean remote) {
                 ChatMessage cm = new ChatMessage();
                 cm.message = conn + " has left the room!";
-                broadcast(cm.messageify());
+                broadcast(new Gson().toJson(cm));
                 System.out.println(conn+" has left the room!");
             }
 
@@ -144,11 +141,11 @@ public class Main {
                     ArrayList<String> ids = (ArrayList<String>) appState.usersInServer.stream().map((it)->it.name ).collect(Collectors.toList());
                     ChatMessage bcm = new ChatMessage();
                     bcm.message = "new userlist is "+ids.toString();
-                    broadcast(bcm.messageify());
+                    broadcast(new Gson().toJson(bcm));
                 }else if (jsonObject.has("message")){
                     ChatMessage chatMessage = new Gson().fromJson(message,ChatMessage.class);
                     chatMessage.message = auser.name +" says "+chatMessage.message;
-                    broadcast(chatMessage.messageify());
+                    broadcast(new Gson().toJson(chatMessage));
                 }
 
             }
@@ -215,7 +212,7 @@ public class Main {
             public void actionPerformed(ActionEvent e) {
                 ChatMessage cm = new ChatMessage();
                 cm.message = appState.chatField.getText();
-                appState.webSocketClient.send(cm.messageify());
+                appState.webSocketClient.send(new Gson().toJson(cm));
                 appState.chatField.setText("");
                 appState.chatField.requestFocus();
             }
