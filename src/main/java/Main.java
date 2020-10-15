@@ -1,8 +1,3 @@
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
-
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import org.java_websocket.WebSocket;
@@ -22,81 +17,78 @@ import java.awt.event.WindowListener;
 import java.net.InetSocketAddress;
 import java.net.URI;
 import java.util.ArrayList;
-import java.util.Collections;
-import java.util.stream.Collectors;
 
-class User{
+class User {
     WebSocket sock;
     String name;
 }
-class AppState{
+
+class AppState {
     ArrayList<User> usersInServer = new ArrayList<User>();
     WebSocketServer webSocketServer;
     WebSocketClient webSocketClient;
     Samform1 samform1;
     JFrame jFrame;
     DefaultListModel<String> listModel;
-    JScrollPane scrollPane;
-    JPanel userscrollpanel;
 }
 
-class ChatMessage{
+class ChatMessage {
     String message;
 }
 
-class SetNameMessage{
+class SetNameMessage {
     String desiredName;
 }
 
-class UserListMessage{
+class UserListMessage {
     ArrayList<String> userList;
     String myName;
 }
 
 
 public class Main {
-    private static WebSocketClient makeClient(AppState appState){
+    private static WebSocketClient makeClient(AppState appState) {
         Draft draft = (Draft) appState.samform1.comboBox1.getSelectedItem();
-        if(draft==null)return null;
+        if (draft == null) return null;
         URI uri = null;
-        try {uri = new URI(appState.samform1.uriField.getText());}catch (Exception uriex){System.out.println(uriex.toString());}
-        if(uri==null)return null;
+        try {
+            uri = new URI(appState.samform1.uriField.getText());
+        } catch (Exception uriex) {
+            System.out.println(uriex.toString());
+        }
+        if (uri == null) return null;
         return new WebSocketClient(uri, draft) {
             @Override
             public void onOpen(ServerHandshake handshakedata) {
                 appState.samform1.textArea1.append("You are connected to ChatServer: " + getURI() + "\n");
                 appState.samform1.textArea1.setCaretPosition(appState.samform1.textArea1.getDocument().getLength());
-                setUINotConnected(appState,true);
+                setUINotConnected(appState, true);
             }
 
             @Override
             public void onMessage(String message) {
-                JsonObject jsonObject = new Gson().fromJson(message,JsonObject.class);
-                if(jsonObject.has("message")){
-                    ChatMessage cm = new Gson().fromJson(message,ChatMessage.class);
-                    appState.samform1.textArea1.append( cm.message );
+                JsonObject jsonObject = new Gson().fromJson(message, JsonObject.class);
+                if (jsonObject.has("message")) {
+                    ChatMessage cm = new Gson().fromJson(message, ChatMessage.class);
+                    appState.samform1.textArea1.append(cm.message);
                     appState.samform1.textArea1.append("\n");
                     appState.samform1.textArea1.setCaretPosition(appState.samform1.textArea1.getDocument().getLength());
-                }else if(jsonObject.has("userList")){
+                } else if (jsonObject.has("userList")) {
                     appState.listModel.clear();
 
-                    appState.userscrollpanel.removeAll();
-                    appState.userscrollpanel.revalidate();
-                    appState.userscrollpanel.repaint();
-                    UserListMessage userListMessage = new Gson().fromJson(message,UserListMessage.class);
-                    System.out.println("client got"+userListMessage.toString());
-                    for(String usr : userListMessage.userList){
+                    appState.samform1.userscrollpanel.removeAll();
+                    appState.samform1.userscrollpanel.revalidate();
+                    appState.samform1.userscrollpanel.repaint();
+                    UserListMessage userListMessage = new Gson().fromJson(message, UserListMessage.class);
+                    System.out.println("client got" + userListMessage.toString());
+                    for (String usr : userListMessage.userList) {
                         UserListItem uli = new UserListItem();
                         uli.textArea1.setText(usr);
                         appState.listModel.addElement(usr);
-                        appState.userscrollpanel.add(uli.panel1);
+                        appState.samform1.userscrollpanel.add(uli.panel1);
+                        if (usr.equals(userListMessage.myName)) {
 
-//                        appState.scrollPane.add(uli.panel1);
-//                        if(usr.equals(userListMessage.myName)){
-//
-//                        }
-//                            appState.cellRenderer.setFont(appState.cellRenderer.getFont().deriveFont(Font.ITALIC));
-//                            appState.cellRenderer.repaint();
+                        }
 
                     }
 //                    for(UserListItem usr : Collections.list(appState.listModel.elements())){
@@ -117,16 +109,17 @@ public class Main {
                 appState.samform1.textArea1.append("websocketclient onError...\n$ex\n");
                 appState.samform1.textArea1.setCaretPosition(appState.samform1.textArea1.getDocument().getLength());
                 ex.printStackTrace();
-                setUINotConnected(appState,false);
+                setUINotConnected(appState, false);
             }
         };
     }
-    private static void setUINotConnected(AppState appState, boolean connected){
-        if(!connected) {
+
+    private static void setUINotConnected(AppState appState, boolean connected) {
+        if (!connected) {
             appState.listModel.clear();
-            appState.userscrollpanel.removeAll();
-            appState.userscrollpanel.revalidate();
-            appState.userscrollpanel.repaint();
+            appState.samform1.userscrollpanel.removeAll();
+            appState.samform1.userscrollpanel.revalidate();
+            appState.samform1.userscrollpanel.repaint();
         }
         appState.samform1.connectToServerButton.setEnabled(!connected);
         appState.samform1.uriField.setEditable(!connected);
@@ -136,21 +129,21 @@ public class Main {
         appState.samform1.setNameButton.setEnabled(connected);
     }
 
-    private static void sendUserList(AppState appState){
+    private static void sendUserList(AppState appState) {
         UserListMessage bcm = new UserListMessage();
         ArrayList<String> ids = new ArrayList<String>();
-        for(User usr : appState.usersInServer){
+        for (User usr : appState.usersInServer) {
             ids.add(usr.name);
         }
         bcm.userList = ids;
-        for(User user : appState.usersInServer){
+        for (User user : appState.usersInServer) {
             bcm.myName = user.name;
-            if(user.sock.isOpen())
+            if (user.sock.isOpen())
                 user.sock.send(new Gson().toJson(bcm));
         }
     }
 
-    private static WebSocketServer makeServer(AppState appState){
+    private static WebSocketServer makeServer(AppState appState) {
         int port = Integer.parseInt(appState.samform1.uriField.getText().split(":")[2]);
         return new WebSocketServer(new InetSocketAddress(port)) {
             @Override
@@ -168,35 +161,35 @@ public class Main {
 
             @Override
             public void onClose(WebSocket conn, int code, String reason, boolean remote) {
-                for(User user : appState.usersInServer){
-                    if(conn == user.sock){
+                for (User user : appState.usersInServer) {
+                    if (conn == user.sock) {
                         appState.usersInServer.remove(user);
                         break;
                     }
                 }
                 sendUserList(appState);
-                System.out.println(conn+" disconnected");
+                System.out.println(conn + " disconnected");
             }
 
             @Override
             public void onMessage(WebSocket conn, String message) {
-                System.out.println("server recieved: "+message);
-                JsonObject jsonObject = new Gson().fromJson(message,JsonObject.class);
-                User auser=null;
-                for(User user : appState.usersInServer){
-                    if(user.sock==conn){
+                System.out.println("server recieved: " + message);
+                JsonObject jsonObject = new Gson().fromJson(message, JsonObject.class);
+                User auser = null;
+                for (User user : appState.usersInServer) {
+                    if (user.sock == conn) {
                         auser = user;
                         break;
                     }
                 }
-                if(auser==null)return;
-                if(jsonObject.has("desiredName")){
-                    SetNameMessage setNameMessage = new Gson().fromJson(message,SetNameMessage.class);
+                if (auser == null) return;
+                if (jsonObject.has("desiredName")) {
+                    SetNameMessage setNameMessage = new Gson().fromJson(message, SetNameMessage.class);
                     auser.name = setNameMessage.desiredName;
                     sendUserList(appState);
-                }else if (jsonObject.has("message")){
-                    ChatMessage chatMessage = new Gson().fromJson(message,ChatMessage.class);
-                    chatMessage.message = auser.name +" says "+chatMessage.message;
+                } else if (jsonObject.has("message")) {
+                    ChatMessage chatMessage = new Gson().fromJson(message, ChatMessage.class);
+                    chatMessage.message = auser.name + " says " + chatMessage.message;
                     broadcast(new Gson().toJson(chatMessage));
                 }
 
@@ -216,7 +209,7 @@ public class Main {
         };
     }
 
-    private static ActionListener connectButtonPressed(AppState appState){
+    private static ActionListener connectButtonPressed(AppState appState) {
         return new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
@@ -229,7 +222,8 @@ public class Main {
             }
         };
     }
-    private static ActionListener makeStartServerActionListener(AppState appState){
+
+    private static ActionListener makeStartServerActionListener(AppState appState) {
         return new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
@@ -238,29 +232,44 @@ public class Main {
             }
         };
     }
-    private static ActionListener closeButtonListener(AppState appState){
+
+    private static ActionListener closeButtonListener(AppState appState) {
         return new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
                 appState.webSocketClient.close();
-                try{ appState.webSocketServer.stop(); }catch (Exception exStop){}
+                try {
+                    appState.webSocketServer.stop();
+                } catch (Exception exStop) {
+                    exStop.printStackTrace();
+                }
                 appState.samform1.textArea1.setCaretPosition(appState.samform1.textArea1.getDocument().getLength());
-                setUINotConnected(appState,false);
+                setUINotConnected(appState, false);
             }
         };
     }
-    private static WindowListener windowCloseListener(AppState appState){
+
+    private static WindowListener windowCloseListener(AppState appState) {
         return new java.awt.event.WindowAdapter() {
             @Override
             public void windowClosing(WindowEvent e) {
                 super.windowClosing(e);
-                try{appState.webSocketServer.stop();}catch (Exception exso){}
-                appState.webSocketClient.close();
+                try {
+                    if (appState.webSocketServer != null) {
+                        appState.webSocketServer.stop();
+                    }
+                } catch (Exception exso) {
+                    exso.printStackTrace();
+                }
+                if (appState.webSocketClient != null) {
+                    appState.webSocketClient.close();
+                }
                 appState.jFrame.dispose();
             }
         };
     }
-    private static ActionListener chatFieldListener(AppState appState){
+
+    private static ActionListener chatFieldListener(AppState appState) {
         return new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
@@ -272,7 +281,8 @@ public class Main {
             }
         };
     }
-    private static ActionListener setNameButtonListener(AppState appState){
+
+    private static ActionListener setNameButtonListener(AppState appState) {
         return new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
@@ -285,33 +295,31 @@ public class Main {
             }
         };
     }
-    private static void startApp(){
-        AppState appState = new AppState();
-        Samform1 sf = new Samform1();
-        appState.samform1 = sf;
-        appState.jFrame = new JFrame("WebSocket Chat Client");
-        appState.jFrame.setContentPane(sf.panel1);
-        sf.chatScrollPane.setViewportView(sf.textArea1);
 
-        appState.scrollPane = sf.scrollpane;
-        appState.userscrollpanel = sf.userscrollpanel;
-        appState.scrollPane.setViewportView(appState.userscrollpanel);
-        appState.userscrollpanel.setPreferredSize(new Dimension(100,500));
+    private static void startApp() {
+        AppState appState = new AppState();
+        appState.samform1 = new Samform1();
+        appState.jFrame = new JFrame("WebSocket Chat Client");
+        appState.jFrame.setContentPane(appState.samform1.panel1);
+        appState.samform1.chatScrollPane.setViewportView(appState.samform1.textArea1);
+
+        appState.samform1.scrollpane.setViewportView(appState.samform1.userscrollpanel);
+        appState.samform1.userscrollpanel.setPreferredSize(new Dimension(100, 500));
 
         appState.listModel = new DefaultListModel<String>();
-        sf.list1.setModel(appState.listModel);
-        sf.comboBox1.addItem(new Draft_6455());
-        sf.uriField.setText("ws://localhost:8887");
-        sf.closeConnectionsButton.setEnabled(false);
-        sf.chatField.setText("");
+        appState.samform1.list1.setModel(appState.listModel);
+        appState.samform1.comboBox1.addItem(new Draft_6455());
+        appState.samform1.uriField.setText("ws://localhost:8887");
+        appState.samform1.closeConnectionsButton.setEnabled(false);
+        appState.samform1.chatField.setText("");
 
-        sf.setNameButton.addActionListener(setNameButtonListener(appState));
-        sf.connectToServerButton.addActionListener(connectButtonPressed(appState));
-        sf.startServerButton.addActionListener(makeStartServerActionListener(appState));
-        sf.closeConnectionsButton.addActionListener(closeButtonListener(appState));
-        sf.chatField.addActionListener(chatFieldListener(appState));
+        appState.samform1.setNameButton.addActionListener(setNameButtonListener(appState));
+        appState.samform1.connectToServerButton.addActionListener(connectButtonPressed(appState));
+        appState.samform1.startServerButton.addActionListener(makeStartServerActionListener(appState));
+        appState.samform1.closeConnectionsButton.addActionListener(closeButtonListener(appState));
+        appState.samform1.chatField.addActionListener(chatFieldListener(appState));
 
-        setUINotConnected(appState,false);
+        setUINotConnected(appState, false);
 
         Dimension d = new Dimension(700, 800);
         appState.jFrame.setPreferredSize(d);
@@ -322,6 +330,6 @@ public class Main {
 
     public static void main(String[] args) {
         startApp();
-        startApp();
+//        startApp();
     }
 }
