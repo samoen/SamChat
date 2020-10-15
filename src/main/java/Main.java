@@ -1,3 +1,8 @@
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
+
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import org.java_websocket.WebSocket;
@@ -17,6 +22,7 @@ import java.awt.event.WindowListener;
 import java.net.InetSocketAddress;
 import java.net.URI;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.stream.Collectors;
 
 class User{
@@ -36,6 +42,9 @@ class AppState{
     JTextField chatField;
     JFrame jFrame;
     DefaultListModel<String> listModel;
+    JScrollPane scrollPane;
+    JPanel userscrollpanel;
+//    DefaultListCellRenderer cellRenderer;
 }
 
 class ChatMessage{
@@ -48,6 +57,7 @@ class SetNameMessage{
 
 class UserListMessage{
     ArrayList<String> userList;
+    String myName;
 }
 
 
@@ -63,6 +73,7 @@ public class Main {
             public void onOpen(ServerHandshake handshakedata) {
                 appState.messageView.append("You are connected to ChatServer: " + getURI() + "\n");
                 appState.messageView.setCaretPosition(appState.messageView.getDocument().getLength());
+                setUINotConnected(appState,true);
             }
 
             @Override
@@ -75,46 +86,75 @@ public class Main {
                     appState.messageView.setCaretPosition(appState.messageView.getDocument().getLength());
                 }else if(jsonObject.has("userList")){
                     appState.listModel.clear();
+
+                    appState.userscrollpanel.removeAll();
+                    appState.userscrollpanel.revalidate();
+                    appState.userscrollpanel.repaint();
                     UserListMessage userListMessage = new Gson().fromJson(message,UserListMessage.class);
+                    System.out.println("client got"+userListMessage.toString());
                     for(String usr : userListMessage.userList){
+                        UserListItem uli = new UserListItem();
+                        uli.textArea1.setText(usr);
                         appState.listModel.addElement(usr);
+                        appState.userscrollpanel.add(uli.panel1);
+
+//                        appState.scrollPane.add(uli.panel1);
+//                        if(usr.equals(userListMessage.myName)){
+//
+//                        }
+//                            appState.cellRenderer.setFont(appState.cellRenderer.getFont().deriveFont(Font.ITALIC));
+//                            appState.cellRenderer.repaint();
+
                     }
+//                    for(UserListItem usr : Collections.list(appState.listModel.elements())){
+//                        if (usr.textArea1.getText().equals(userListMessage.myName)) {
+//                            usr.textArea1.setFont(usr.textArea1.getFont().deriveFont(Font.ITALIC));
+//                        }
+//                    }
                 }
             }
 
             @Override
             public void onClose(int code, String reason, boolean remote) {
-                appState.messageView.append("You have been disconnected from: " + getURI() + "; Code: " + code + " " + reason + "\n");
-                appState.messageView.setCaretPosition(appState.messageView.getDocument().getLength());
-                appState.listModel.clear();
-                appState.connectButton.setEnabled(true);
-                appState.uriField.setEditable(true);
-                appState.draftComboBox.setEditable(true);
-                appState.closeButton.setEnabled(false);
+                appState.messageView.append("websocketclient onClose... " + getURI() + "; Code: " + code + " " + reason + "\n");
             }
 
             @Override
             public void onError(Exception ex) {
-                appState.messageView.append("Exception occured ...\n$ex\n");
+                appState.messageView.append("websocketclient onError...\n$ex\n");
                 appState.messageView.setCaretPosition(appState.messageView.getDocument().getLength());
                 ex.printStackTrace();
-                appState.connectButton.setEnabled(true);
-                appState.uriField.setEditable(true);
-                appState.draftComboBox.setEditable(true);
-                appState.closeButton.setEnabled(false);
+                setUINotConnected(appState,false);
             }
         };
+    }
+    private static void setUINotConnected(AppState appState, boolean connected){
+        if(!connected) {
+            appState.listModel.clear();
+            appState.userscrollpanel.removeAll();
+            appState.userscrollpanel.revalidate();
+            appState.userscrollpanel.repaint();
+        }
+        appState.connectButton.setEnabled(!connected);
+        appState.uriField.setEditable(!connected);
+        appState.draftComboBox.setEditable(!connected);
+        appState.closeButton.setEnabled(connected);
+        appState.chatField.setEnabled(connected);
+        appState.setNameButton.setEnabled(connected);
     }
 
     private static void sendUserList(AppState appState){
         UserListMessage bcm = new UserListMessage();
-//        ArrayList<String> ids = (ArrayList<String>) appState.usersInServer.stream().map((it)->it.name ).collect(Collectors.toList());
         ArrayList<String> ids = new ArrayList<String>();
         for(User usr : appState.usersInServer){
             ids.add(usr.name);
         }
         bcm.userList = ids;
-        appState.webSocketServer.broadcast(new Gson().toJson(bcm));
+        for(User user : appState.usersInServer){
+            bcm.myName = user.name;
+            if(user.sock.isOpen())
+                user.sock.send(new Gson().toJson(bcm));
+        }
     }
 
     private static WebSocketServer makeServer(AppState appState){
@@ -123,7 +163,7 @@ public class Main {
             @Override
             public void onOpen(WebSocket conn, ClientHandshake handshake) {
                 User user = new User();
-                user.name = conn.getRemoteSocketAddress().getAddress().toString();
+                user.name = "Unnamed User";
                 user.sock = conn;
                 appState.usersInServer.add(user);
                 ChatMessage cm = new ChatMessage();
@@ -141,10 +181,6 @@ public class Main {
                         break;
                     }
                 }
-
-//                ChatMessage cm = new ChatMessage();
-//                cm.message = conn + " has left the room!";
-//                broadcast(new Gson().toJson(cm));
                 sendUserList(appState);
                 System.out.println(conn+" disconnected");
             }
@@ -215,6 +251,8 @@ public class Main {
             public void actionPerformed(ActionEvent e) {
                 appState.webSocketClient.close();
                 try{ appState.webSocketServer.stop(); }catch (Exception exStop){}
+                appState.messageView.setCaretPosition(appState.messageView.getDocument().getLength());
+                setUINotConnected(appState,false);
             }
         };
     }
@@ -266,11 +304,33 @@ public class Main {
         appState.closeButton = sf.closeConnectionsButton;
         appState.messageView = sf.textArea1;
         appState.chatField= sf.chatField;
-        JScrollPane scroll = sf.chatScrollPane;
-        scroll.setViewportView(appState.messageView);
+        sf.chatScrollPane.setViewportView(appState.messageView);
         JButton startServer = sf.startServerButton;
+
+//        appState.cellRenderer = new DefaultListCellRenderer();
+        appState.scrollPane = sf.scrollpane;
+        appState.userscrollpanel = sf.userscrollpanel;
+        appState.scrollPane.setViewportView(appState.userscrollpanel);
+
+//        sf.userscrollpanel.add(new JLabel("eh"));
+        appState.userscrollpanel.setPreferredSize(new Dimension(100,500));
+//        UserListItem uli = new UserListItem();
+//        uli.textArea1.setText("wooo");
+//        sf.userscrollpanel.add(uli.panel1);
+////        sf.userscrollpanel.revalidate();
+//        UserListItem uli2 = new UserListItem();
+//        uli2.textArea1.setText("ttt");
+//        sf.userscrollpanel.add(uli2.panel1);
+//        sf.userscrollpanel.repaint();
+//        sf.userscrollpanel.revalidate();
+//        sf.userscrollpanel.add(new JLabel("hihihihi"));
+//        sf.userscrollpanel.setComponentOrientation(ComponentOrientation.LEFT_TO_RIGHT);
+//        ((FlowLayout)sf.userscrollpanel.getLayout()).setAlignment(ScrollPane.);
+
+
         appState.listModel = new DefaultListModel<String>();
         sf.list1.setModel(appState.listModel);
+//        sf.list1.add(appState.cellRenderer);
         appState.draftComboBox = sf.comboBox1;
         appState.draftComboBox.addItem(new Draft_6455());
         appState.uriField.setText("ws://localhost:8887");
@@ -283,6 +343,8 @@ public class Main {
         appState.closeButton.addActionListener(closeButtonListener(appState));
         appState.chatField.addActionListener(chatFieldListener(appState));
 
+        setUINotConnected(appState,false);
+
         Dimension d = new Dimension(700, 800);
         appState.jFrame.setPreferredSize(d);
         appState.jFrame.setSize(d);
@@ -290,9 +352,63 @@ public class Main {
         appState.jFrame.setVisible(true);
     }
 
-    public static void main(String[] args){
-        System.out.println("hihi");
+    public static void main(String[] args) {
+//        System.out.println("hihi");
+//        List<String> al = new ArrayList<String>(){"hi","cool"};
+//        List<String> al = Arrays.asList("hi", "cool", "yessir");
+//        System.out.println(reverseAll(al));
+
         startApp();
         startApp();
+    }
+
+    /**
+     * Finish the following method to conform to the @return documentation
+     *
+     * @param items list of strings
+     * @return A reversed list, where every string in the list is also reversed
+     * <p>
+     * Example
+     * ["ab", "bc", "cd"] -> ["dc", "cb", "ba"]
+     */
+    public static List<String> reverseAll(List<String> items) {
+
+//        int aLen = items.size();
+//        String[] result = new String[aLen];
+//
+//        for (int i = 0; i < items.size(); i++) {
+//            String toReverse = items.get(i);
+//            int len = toReverse.length();
+//            char[] build = new char[len];
+//            for (int j = 0; j < len; j++) {
+//                build[len - 1 - j] = toReverse.charAt(j);
+//            }
+//            result[aLen - 1 - i] = new String(build);
+//        }
+
+        List<String> al = new ArrayList<String>();
+        for(int i=0;i<items.size();i++){
+            String toAdd = items.get(items.size()-1-i);
+            char[] resultchars = new char[toAdd.length()];
+            for(int j=0;j<toAdd.length();j++){
+                resultchars[j] = toAdd.charAt(toAdd.length()-1-j);
+            }
+            al.add(new String(resultchars));
+        }
+//        for (String i : items){
+////            StringBuilder sb = new StringBuilder();
+////            sb.append(i);
+////            sb.reverse();
+////            i = sb.toString();
+//            List lc = Arrays.asList(i.toCharArray());
+//            Collections.reverse(lc);
+//
+//            al.add(new String(lc.toArray()));
+////            al.add(sb.toString());
+//        }
+//        Collections.reverse(al);
+//
+        return al;
+//        return Arrays.asList(result);
     }
 }
