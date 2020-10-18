@@ -75,27 +75,16 @@ public class Main {
                     appState.samform1.textArea1.setCaretPosition(appState.samform1.textArea1.getDocument().getLength());
                 } else if (jsonObject.has("userList")) {
                     appState.listModel.clear();
-
                     appState.samform1.userscrollpanel.removeAll();
                     appState.samform1.userscrollpanel.revalidate();
                     appState.samform1.userscrollpanel.repaint();
                     UserListMessage userListMessage = new Gson().fromJson(message, UserListMessage.class);
-                    System.out.println("client got" + userListMessage.toString());
                     for (String usr : userListMessage.userList) {
                         UserListItem uli = new UserListItem();
                         uli.textArea1.setText(usr);
                         appState.listModel.addElement(usr);
                         appState.samform1.userscrollpanel.add(uli.panel1);
-                        if (usr.equals(userListMessage.myName)) {
-
-                        }
-
                     }
-//                    for(UserListItem usr : Collections.list(appState.listModel.elements())){
-//                        if (usr.textArea1.getText().equals(userListMessage.myName)) {
-//                            usr.textArea1.setFont(usr.textArea1.getFont().deriveFont(Font.ITALIC));
-//                        }
-//                    }
                 }
             }
 
@@ -264,6 +253,7 @@ public class Main {
                 if (appState.webSocketClient != null) {
                     appState.webSocketClient.close();
                 }
+
                 appState.jFrame.dispose();
             }
         };

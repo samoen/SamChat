@@ -1,21 +1,44 @@
-
 plugins {
     id 'java'
-    id 'idea'
+//    id 'idea'
 }
 
-group 'jsockerGroup'
-version '1.0-SNAPSHOT'
+//group 'jsockerGroup'
+//version '1.0-SNAPSHOT'
 
+task buildChatApp(type: Jar) {
+//    dependsOn(configurations.runtimeClasspath)
+//    dependsOn(clean)
+//    mustRunAfter(clean)
+
+    from files(sourceSets.main.output.classesDirs)
+    from { configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) } }
+    manifest {
+        attributes 'Main-Class': 'Main'
+    }
+    doFirst {
+        project.setArchivesBaseName("SamChat")
+    }
+    doLast{
+        def pathToChatApp = jar.getArchiveFile().get().asFile.path
+        println 'building the chat app,'
+        println 'with classpath: '+configurations.runtimeClasspath.collect()
+        println 'and class dir: '+sourceSets.main.output.classesDirs.collect()
+        println 'will output: '+pathToChatApp
+        javaexec {
+            main = "-jar";
+            args += pathToChatApp
+        }
+    }
+}
 
 repositories {
     mavenCentral()
 }
 
 dependencies {
-    implementation 'org.slf4j:slf4j-api:1.7.5'
-    implementation 'org.slf4j:slf4j-simple:1.7.5'
     implementation 'com.google.code.gson:gson:2.8.5'
-    implementation "org.java-websocket:Java-WebSocket:1.4.0"
+    implementation 'org.java-websocket:Java-WebSocket:1.5.1'
+    implementation 'com.intellij:forms_rt:7.0.3'
     testCompile group: 'junit', name: 'junit', version: '4.12'
 }
