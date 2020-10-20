@@ -1,37 +1,34 @@
 plugins {
     id 'java'
-    id 'idea'
+//    id 'idea'
 }
-
-def chatAppJarName = 'myChatApp'
 
 task createChatAppJar(type: Jar) {
     outputs.upToDateWhen { false }
-    def fromMainOutput = sourceSets.main.output
-    def fromClasspath = {
-        configurations.compileClasspath.findAll { it.name.endsWith('jar') }.collect { zipTree(it) }
+
+    def classesAndResourcesOutputFolders = getSourceSets().getByName('main').getOutput()
+    def classpathJars = {
+        getSourceSets().getByName('main').getCompileClasspath().findAll { it.getName().endsWith('jar') }.collect { zipTree(it) }
     }
-    from fromMainOutput
-    from fromClasspath
+    from classesAndResourcesOutputFolders
+    from classpathJars
     manifest {
         attributes 'Main-Class': 'Main'
     }
-    doFirst {
-        println 'from: ' + fromMainOutput.collect()
-        println 'runtimeclasses: ' + fromClasspath()
-        project.setArchivesBaseName(chatAppJarName)
-        println 'doFirst set archive base name'
+    setArchivesBaseName('SamChatApp')
+    archiveClassifier.set('uber')
+    doLast {
+        println 'building ' + getArchiveFile().get().getAsFile().getPath()
+        println 'from: ' + classesAndResourcesOutputFolders.collect()
+        println 'from: ' + classpathJars()
     }
 }
 
-
 task runChatApp {
     doLast {
-        println 'runChat app at '+jar.getArchiveFile().get().asFile.path
         javaexec {
             main = "-jar";
-            args += project.getBuildDir().getPath() + '\\libs\\' + chatAppJarName + '.jar'
-//            args += jar.getArchiveFile().get().asFile.path
+            args += createChatAppJar.getArchiveFile().get().getAsFile().getPath()
         }
     }
 }
