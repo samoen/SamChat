@@ -48,8 +48,7 @@ class UserListMessage {
 
 public class Main {
     private static WebSocketClient makeClient(AppState appState) {
-        Draft draft = (Draft) appState.samform1.comboBox1.getSelectedItem();
-        if (draft == null) return null;
+        Draft draft = new Draft_6455();
         URI uri = null;
         try {
             uri = new URI(appState.samform1.uriField.getText());
@@ -112,7 +111,6 @@ public class Main {
         }
         appState.samform1.connectToServerButton.setEnabled(!connected);
         appState.samform1.uriField.setEditable(!connected);
-        appState.samform1.comboBox1.setEditable(!connected);
         appState.samform1.closeConnectionsButton.setEnabled(connected);
         appState.samform1.chatField.setEnabled(connected);
         appState.samform1.setNameButton.setEnabled(connected);
@@ -206,7 +204,6 @@ public class Main {
                 appState.samform1.closeConnectionsButton.setEnabled(true);
                 appState.samform1.connectToServerButton.setEnabled(false);
                 appState.samform1.uriField.setEditable(false);
-                appState.samform1.comboBox1.setEditable(false);
                 appState.webSocketClient.connect();
             }
         };
@@ -298,7 +295,6 @@ public class Main {
 
         appState.listModel = new DefaultListModel<String>();
         appState.samform1.list1.setModel(appState.listModel);
-        appState.samform1.comboBox1.addItem(new Draft_6455());
         appState.samform1.uriField.setText("ws://localhost:8887");
         appState.samform1.closeConnectionsButton.setEnabled(false);
         appState.samform1.chatField.setText("");

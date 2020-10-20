@@ -1,35 +1,44 @@
 plugins {
     id 'java'
-//    id 'idea'
+    id 'idea'
 }
 
-//group 'jsockerGroup'
-//version '1.0-SNAPSHOT'
+def chatAppJarName = 'myChatApp'
 
-task buildChatApp(type: Jar) {
-//    dependsOn(configurations.runtimeClasspath)
-//    dependsOn(clean)
-//    mustRunAfter(clean)
-
-    from files(sourceSets.main.output.classesDirs)
-    from { configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) } }
+task createChatAppJar(type: Jar) {
+    outputs.upToDateWhen { false }
+    def fromMainOutput = sourceSets.main.output
+    def fromClasspath = {
+        configurations.compileClasspath.findAll { it.name.endsWith('jar') }.collect { zipTree(it) }
+    }
+    from fromMainOutput
+    from fromClasspath
     manifest {
         attributes 'Main-Class': 'Main'
     }
     doFirst {
-        project.setArchivesBaseName("SamChat")
+        println 'from: ' + fromMainOutput.collect()
+        println 'runtimeclasses: ' + fromClasspath()
+        project.setArchivesBaseName(chatAppJarName)
+        println 'doFirst set archive base name'
     }
-    doLast{
-        def pathToChatApp = jar.getArchiveFile().get().asFile.path
-        println 'building the chat app,'
-        println 'with classpath: '+configurations.runtimeClasspath.collect()
-        println 'and class dir: '+sourceSets.main.output.classesDirs.collect()
-        println 'will output: '+pathToChatApp
+}
+
+
+task runChatApp {
+    doLast {
+        println 'runChat app at '+jar.getArchiveFile().get().asFile.path
         javaexec {
             main = "-jar";
-            args += pathToChatApp
+            args += project.getBuildDir().getPath() + '\\libs\\' + chatAppJarName + '.jar'
+//            args += jar.getArchiveFile().get().asFile.path
         }
     }
+}
+
+task buildThenRun {
+    dependsOn(createChatAppJar)
+    finalizedBy(runChatApp)
 }
 
 repositories {
