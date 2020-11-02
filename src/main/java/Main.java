@@ -1,5 +1,8 @@
 import com.google.gson.Gson;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import com.google.gson.annotations.SerializedName;
 import org.java_websocket.WebSocket;
 import org.java_websocket.client.WebSocketClient;
 import org.java_websocket.drafts.Draft;
@@ -14,8 +17,22 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.WindowEvent;
 import java.awt.event.WindowListener;
+import java.io.BufferedReader;
+import java.io.DataOutputStream;
+import java.io.InputStreamReader;
+import java.io.OutputStream;
+import java.net.HttpURLConnection;
 import java.net.InetSocketAddress;
 import java.net.URI;
+import java.net.URL;
+import java.nio.charset.StandardCharsets;
+import java.sql.Timestamp;
+import java.time.Instant;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
+import java.time.format.FormatStyle;
+import java.time.temporal.ChronoUnit;
+import java.time.temporal.TemporalUnit;
 import java.util.ArrayList;
 
 class User {
@@ -45,6 +62,17 @@ class UserListMessage {
     String myName;
 }
 
+class ElasticEntry {
+    @SerializedName("@timestamp")
+    String timestamp;
+
+    String message;
+    ElasticUser user;
+}
+
+class ElasticUser {
+    String id;
+}
 
 public class Main {
     private static WebSocketClient makeClient(AppState appState) {
@@ -73,7 +101,7 @@ public class Main {
                     appState.samform1.textArea1.append("\n");
                     appState.samform1.textArea1.setCaretPosition(appState.samform1.textArea1.getDocument().getLength());
                 } else if (jsonObject.has("userList")) {
-                    appState.listModel.clear();
+//                    appState.listModel.clear();
                     appState.samform1.userscrollpanel.removeAll();
                     appState.samform1.userscrollpanel.revalidate();
                     appState.samform1.userscrollpanel.repaint();
@@ -81,7 +109,7 @@ public class Main {
                     for (String usr : userListMessage.userList) {
                         UserListItem uli = new UserListItem();
                         uli.textArea1.setText(usr);
-                        appState.listModel.addElement(usr);
+//                        appState.listModel.addElement(usr);
                         appState.samform1.userscrollpanel.add(uli.panel1);
                     }
                 }
@@ -173,6 +201,7 @@ public class Main {
                 if (jsonObject.has("desiredName")) {
                     SetNameMessage setNameMessage = new Gson().fromJson(message, SetNameMessage.class);
                     auser.name = setNameMessage.desiredName;
+                    addDocumentToElastic(setNameMessage.desiredName);
                     sendUserList(appState);
                 } else if (jsonObject.has("message")) {
                     ChatMessage chatMessage = new Gson().fromJson(message, ChatMessage.class);
@@ -304,6 +333,48 @@ public class Main {
         appState.samform1.startServerButton.addActionListener(makeStartServerActionListener(appState));
         appState.samform1.closeConnectionsButton.addActionListener(closeButtonListener(appState));
         appState.samform1.chatField.addActionListener(chatFieldListener(appState));
+        appState.samform1.usersearch.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                try {
+//                    URL url = new URL("http://localhost:9200/my-index-000001/_search?q=user.id:kimchy");
+                    URL url = new URL("http://localhost:9200/my-index-000001/_search?pretty=true");
+
+                    HttpURLConnection con = (HttpURLConnection) url.openConnection();
+                    con.setRequestMethod("GET");
+                    con.setRequestProperty("Content-Type", "application/json; utf-8");
+                    con.setRequestProperty("Accept", "application/json");
+                    con.setDoOutput(true);
+                    String jsonInputString = "{\"query\" : { \"match_all\" : {} } }";
+                    try (OutputStream os = con.getOutputStream()) {
+                        byte[] input = jsonInputString.getBytes(StandardCharsets.UTF_8);
+                        os.write(input, 0, input.length);
+                    }
+
+                    BufferedReader in = new BufferedReader(new InputStreamReader(con.getInputStream()));
+                    String inputLine;
+                    StringBuilder content = new StringBuilder();
+                    while ((inputLine = in.readLine()) != null) {
+                        content.append(inputLine);
+                    }
+                    in.close();
+                    con.disconnect();
+                    JsonObject jsob = new Gson().fromJson(content.toString(), JsonObject.class);
+//                    System.out.println(content.toString());
+                    JsonArray innerHits = jsob.get("hits").getAsJsonObject().get("hits").getAsJsonArray();
+                    appState.listModel.clear();
+                    for (JsonElement hit : innerHits) {
+                        String source = hit.getAsJsonObject().get("_source").toString();
+                        System.out.println(source);
+                        ElasticEntry ee = new Gson().fromJson(source, ElasticEntry.class);
+                        appState.listModel.addElement(ee.user.id);
+                    }
+
+                } catch (Exception exception) {
+                    System.out.println("failed search req " + exception);
+                }
+            }
+        });
 
         setUINotConnected(appState, false);
 
@@ -312,10 +383,53 @@ public class Main {
         appState.jFrame.setSize(d);
         appState.jFrame.addWindowListener(windowCloseListener(appState));
         appState.jFrame.setVisible(true);
+
+    }
+
+    public static void addDocumentToElastic(String userid) {
+        try {
+//                    URL url = new URL("http://localhost:9200/my-index-000001/_search?q=user.id:kimchy");
+            URL url = new URL("http://localhost:9200/my-index-000001/_doc?pretty=true");
+
+            HttpURLConnection con = (HttpURLConnection) url.openConnection();
+            con.setRequestMethod("POST");
+            con.setRequestProperty("Content-Type", "application/json; utf-8");
+            con.setRequestProperty("Accept", "application/json");
+            con.setDoOutput(true);
+
+            ElasticEntry ee = new ElasticEntry();
+            ee.message = "mess";
+
+            Instant instant = Instant.now();
+
+            ee.timestamp = instant.truncatedTo(ChronoUnit.SECONDS).toString();
+            ee.user = new ElasticUser();
+            ee.user.id = userid;
+            String jsonInputString = new Gson().toJson(ee);
+            System.out.println(jsonInputString);
+            try (OutputStream os = con.getOutputStream()) {
+                byte[] input = jsonInputString.getBytes(StandardCharsets.UTF_8);
+                os.write(input, 0, input.length);
+            }
+
+            BufferedReader in = new BufferedReader(new InputStreamReader(con.getInputStream()));
+            String inputLine;
+            StringBuilder content = new StringBuilder();
+            while ((inputLine = in.readLine()) != null) {
+                content.append(inputLine);
+            }
+            in.close();
+            con.disconnect();
+            System.out.println(content.toString());
+
+        } catch (Exception exception) {
+            System.out.println("failed to add user to elastic " + exception);
+        }
     }
 
     public static void main(String[] args) {
         startApp();
 //        startApp();
     }
+
 }

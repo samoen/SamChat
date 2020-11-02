@@ -1,4 +1,5 @@
 import javax.swing.*;
+import javax.swing.border.TitledBorder;
 import java.awt.*;
 
 public class UserListItem {
@@ -25,7 +26,7 @@ public class UserListItem {
         panel1.setLayout(new FlowLayout(FlowLayout.LEFT, 5, 5));
         panel1.setAutoscrolls(true);
         panel1.setMaximumSize(new Dimension(100, 50));
-        panel1.setBorder(BorderFactory.createTitledBorder(BorderFactory.createRaisedBevelBorder(), null));
+        panel1.setBorder(BorderFactory.createTitledBorder(BorderFactory.createRaisedBevelBorder(), null, TitledBorder.DEFAULT_JUSTIFICATION, TitledBorder.DEFAULT_POSITION, null, null));
         textArea1 = new JLabel();
         textArea1.setText("Label");
         panel1.add(textArea1);
