@@ -18,7 +18,6 @@ import java.awt.event.ActionListener;
 import java.awt.event.WindowEvent;
 import java.awt.event.WindowListener;
 import java.io.BufferedReader;
-import java.io.DataOutputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.net.HttpURLConnection;
@@ -26,13 +25,8 @@ import java.net.InetSocketAddress;
 import java.net.URI;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
-import java.sql.Timestamp;
 import java.time.Instant;
-import java.time.ZoneId;
-import java.time.format.DateTimeFormatter;
-import java.time.format.FormatStyle;
 import java.time.temporal.ChronoUnit;
-import java.time.temporal.TemporalUnit;
 import java.util.ArrayList;
 
 class User {
@@ -337,8 +331,13 @@ public class Main {
             @Override
             public void actionPerformed(ActionEvent e) {
                 try {
-//                    URL url = new URL("http://localhost:9200/my-index-000001/_search?q=user.id:kimchy");
-                    URL url = new URL("http://localhost:9200/my-index-000001/_search?pretty=true");
+                    String chatFieldText = appState.samform1.chatField.getText();
+                    String urlParams = "pretty=true";
+                    if (!chatFieldText.isEmpty()) {
+                        appState.samform1.chatField.setText("");
+                        urlParams = "q=user.id:" + chatFieldText;
+                    }
+                    URL url = new URL("http://localhost:9200/my-index-000001/_search?" + urlParams);
 
                     HttpURLConnection con = (HttpURLConnection) url.openConnection();
                     con.setRequestMethod("GET");
@@ -360,7 +359,6 @@ public class Main {
                     in.close();
                     con.disconnect();
                     JsonObject jsob = new Gson().fromJson(content.toString(), JsonObject.class);
-//                    System.out.println(content.toString());
                     JsonArray innerHits = jsob.get("hits").getAsJsonObject().get("hits").getAsJsonArray();
                     appState.listModel.clear();
                     for (JsonElement hit : innerHits) {
